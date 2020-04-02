@@ -1,0 +1,107 @@
+policies:
+  #
+  - name: action_count-stopped-vm
+    resource: azure.vm
+    filters:
+     - type: instance-view
+       key: statuses[].code
+       op: not-in
+       value_type: swap
+       value: "PowerState/running"
+
+  - name: schedule-off-hours-on-weekends-for-instances
+    resource: azure.vm
+    filters:
+    - type: offhour
+      weekends: true
+      weekends-only: true
+      offhour: 0
+      default_tz: gmt 
+      tag: schedule-weekend-downtime
+    actions:
+      - type: stop
+
+  - name: start-vm-after-weekend
+    resource: azure.vm
+    filters:
+    - type: onhour
+      weekends: false
+      default_tz: gmt 
+      tag: schedule-weekend-downtime
+      onhour: 0
+    actions:
+      - type: start
+
+  - name: mark_orphaned-nic-for-deletion
+    resource: azure.networkinterface
+    filters:
+      - and:  
+        - type: value
+          key: properties.virtualMachine
+          value: null
+        - type: value  
+          key: properties.privateEndpoint
+          value: null
+    actions:
+      - type: mark-for-op
+        op: delete
+
+  - name: action_delete-orphaned-nic
+    resource: azure.networkinterface
+    filters:
+      - and:  
+        - type: value
+          key: properties.virtualMachine
+          value: null
+        - type: value  
+          key: properties.privateEndpoint
+          value: null
+        - type: marked-for-op
+          op: delete
+    actions:
+      - type: delete
+
+  - name: action_snapshot-unattached-disks
+    resource: azure.disk
+    filters:
+      - type: value
+        key: managedBy
+        value: null
+    actions:
+      - type: snapshot
+      - type: mark-for-op
+        op: delete
+
+  - name: action_delete-unatached-disks-after-snapshot
+    description: |
+      Delete all disks that are unatached for longer than 7 days (snapshot was taken before)
+    resource: azure.disk
+    filters:
+      - type: value
+        key: managedBy
+        value: null
+      - type: marked-for-op
+        op: delete
+    actions:
+      - type: delete
+
+  - name: mark_unattached-public-ip-for-deletion
+    resource: azure.publicip
+    filters:
+      - type: value
+        key: properties.ipConfiguration
+        value: null
+    actions:
+      - type: mark-for-op
+        op: delete
+
+  - name: action_delete_unattached-public-ip
+    resource: azure.publicip
+    filters:
+      - type: value
+        key: properties.ipConfiguration
+        value: null
+      - type: marked-for-op
+        op: delete
+    actions:
+      - type: delete
