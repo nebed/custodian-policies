@@ -1,0 +1,3 @@
+[submodule "cloud-custodian"]
+	path = cloud-custodian
+	url = https://github.com/nebed/cloud-custodian
